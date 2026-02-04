@@ -6,8 +6,8 @@ Protocol-based connectors for [hive-mcp](https://github.com/hive-agi/hive-mcp). 
 
 | Connector | Status | Description |
 |-----------|--------|-------------|
-| **Slack** | MVP | Send hivemind events to Slack channels via official Java SDK |
-| GitHub | Planned | Issue/PR notifications and comments |
+| **Slack** | ✅ MVP | Send hivemind events to Slack channels via official Java SDK |
+| **GitHub** | ✅ MVP | Issue/PR notifications, comments, and management via kohsuke/github-api |
 | Linear | Planned | Task sync and notifications |
 | Notion | Planned | Documentation sync |
 
@@ -38,18 +38,57 @@ Add to your `deps.edn`:
 ;; => Posts formatted message: "🎉 *ling-1* completed: Finished refactoring auth module"
 ```
 
+### GitHub Connector
+
+```clojure
+(require '[hive.connectors.github :as github])
+
+;; Create a client with token
+(def client (github/create-client "ghp_your-token"))
+;; Or from GITHUB_TOKEN env var
+(def client (github/create-client-from-env))
+
+;; Create an issue
+(github/create-issue! client "hive-agi/hive-connectors"
+                      "Bug: something is broken"
+                      "Description of the issue..."
+                      {:labels ["bug" "hivemind"]})
+;; => {:ok true :number 42 :url "https://github.com/..."}
+
+;; Comment on an issue/PR
+(github/comment-on-issue! client "hive-agi/hive-connectors" 42
+                          "Automated update from hivemind")
+
+;; Post a hivemind event to an issue
+(github/notify-issue! client "hive-agi/hive-connectors" 42
+                      {:a "ling-1" :e "completed" :m "Fixed the bug"})
+;; => Posts: "✅ **ling-1** | Completed\n\nFixed the bug"
+
+;; List open issues
+(github/list-issues client "hive-agi/hive-connectors")
+```
+
 ### Environment Variables
 
 ```bash
 export SLACK_BOT_TOKEN="xoxb-your-bot-token"
 export SLACK_CHANNEL="#hivemind"
+export GITHUB_TOKEN="ghp_your-token"
 ```
+
+Copy `.env.example` to `.env` and fill in your tokens.
 
 ### Required Slack Permissions
 
 Your Slack app needs these OAuth scopes:
 - `chat:write` - Post messages to channels
 - `chat:write.public` - Post to channels the bot isn't a member of
+
+### Required GitHub Permissions
+
+Your GitHub PAT needs these scopes:
+- `repo` - Full control of private repositories (or `public_repo` for public only)
+- `write:discussion` - Optional, for discussion comments
 
 ## Architecture
 
