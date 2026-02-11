@@ -1,0 +1,3 @@
+{:project-id "hive-connectors"
+ :parent "hive"
+ :description "External service connectors for the hive ecosystem"}
