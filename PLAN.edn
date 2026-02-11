@@ -1,0 +1,118 @@
+{:id "plan-20260210-hive-connectors"
+ :title "hive-connectors: Adapter Contracts Layer for hive-ingest"
+ :description "Restructure hive-connectors as the adapter contracts layer for the hive-ingest product ecosystem. Align protocols with hive-mcp.protocols.connector (OPEN/CLOSED decision 20260204135506). Add Connection Registry (hive-ingest component #4: users register DB URLs, APIs; system scans via adapters). Add JDBC adapter for enterprise DBs (PostgreSQL, Firebird, Oracle, SQL Server). Rewrite existing GitHub connector to implement canonical hive-mcp IConnector. Current state: 3 src files (protocols.clj with DIVERGENT protocols, github.clj solid but wrong protocol, slack.clj 96-line MVP not implementing IConnector), 1 test file. License mismatch (AGPL-3.0 vs mandated MIT). No .hive-project.edn. Context KG nodes: 20260210215233-06dc4a50 (ecosystem structure), 20260210214018-66033038 (product vision), 20260210214022-675fd384 (architecture spec)."
+ :tags ["plan" "hive-connectors" "architecture"]
+ :steps
+ [{:id "step-1"
+   :title "Project scaffolding and license fix"
+   :description "1. Create .hive-project.edn {:project-id \"hive-connectors\" :parent \"hive\"}. 2. Replace LICENSE with MIT (Ecosystem Tier 1 mandate). 3. Update README license section. 4. Restructure src/ dirs: src/hive/connectors/{adapters/,registry/,infra/}. 5. Update deps.edn: add hive-mcp local/root dep for protocols, next.jdbc + hikari-cp for JDBC, clj-http for REST."
+   :files ["deps.edn" ".hive-project.edn" "LICENSE" "README.md"]
+   :depends-on []
+   :priority :high
+   :wave 1}
+
+  {:id "step-2"
+   :title "Align protocols.clj with hive-mcp canonical protocols"
+   :description "REMOVE divergent IConnector, IDataMapper, IAuthProvider (canonical in hive-mcp.protocols.connector). KEEP hive-connectors-only additions: IRateLimiter (acquire!/remaining/backoff!), IWebhookHandler (validate-signature/parse-event/route-event). ADD new IConnectionRegistry protocol: (register-source! [this source-def]) (list-sources [this]) (validate-source [this source-def]) (scan-source! [this source-id]) (source-status [this source-id]). All connector impls will require hive-mcp.protocols.connector and implement its IConnector + IDataMapper."
+   :files ["src/hive/connectors/protocols.clj"]
+   :depends-on ["step-1"]
+   :priority :high
+   :wave 1}
+
+  {:id "step-3"
+   :title "Create core.clj — adapter registry and lifecycle"
+   :description "Main entry point: src/hive/connectors/core.clj. (1) Adapter factory multimethod (make-adapter adapter-type opts) dispatching on :jdbc/:rest/:github/:slack. (2) Lifecycle helpers: connect-all!/disconnect-all!/health-check-all delegating to hive-mcp protocol fns. (3) Re-export common protocol functions for convenience API. Wraps hive-mcp connector-registry with adapter-specific factory logic."
+   :files ["src/hive/connectors/core.clj"]
+   :depends-on ["step-2"]
+   :priority :high
+   :wave 1}
+
+  {:id "step-4"
+   :title "Connection Registry (hive-ingest component #4)"
+   :description "src/hive/connectors/registry.clj implementing IConnectionRegistry. User-facing registration system from hive-ingest architecture (20260210214022-675fd384). Features: (1) register-source! — user provides {:type :jdbc :url \"jdbc:postgresql://...\" :credentials {...}} or {:type :rest :base-url \"https://api.example.com\" :auth {:type :bearer}}. (2) validate-source — check connectivity, auth, basic schema discovery. (3) scan-source! — dispatch adapter to scan/index available resources (tables for JDBC, endpoints for REST). (4) Persist registered sources as hive-mcp memory entries with :external-ref metadata. (5) source-status — health/connectivity for registered sources. Backend support per architecture: PostgreSQL, Firebird, Oracle, SQL Server, Generic JDBC, REST APIs."
+   :files ["src/hive/connectors/registry.clj"]
+   :depends-on ["step-3"]
+   :priority :high
+   :wave 2}
+
+  {:id "step-5"
+   :title "JDBC adapter — GenericJDBCConnector"
+   :description "src/hive/connectors/adapters/jdbc.clj implementing hive-mcp.protocols.connector/IConnector + IDataMapper. Uses next.jdbc + HikariCP connection pooling. connect! creates HikariCP datasource from {:jdbc-url :username :password :driver-class}. disconnect! closes pool. send = execute SQL mutations (INSERT/UPDATE/DELETE). receive = execute SQL queries returning result sets as maps. sync! = bidirectional table sync with conflict resolution. IDataMapper: inbound converts ResultSet rows to hive memory entries, outbound converts memory entries to SQL params. Schema discovery via information_schema for tables/columns. Supports PostgreSQL, Firebird, Oracle, SQL Server, Generic JDBC. HIGHEST PRODUCT VALUE adapter — Connection Registry depends on this."
+   :files ["src/hive/connectors/adapters/jdbc.clj"]
+   :depends-on ["step-2"]
+   :priority :high
+   :wave 2}
+
+  {:id "step-6"
+   :title "JDBC adapter tests"
+   :description "test/hive/connectors/adapters/jdbc_test.clj. (1) Unit: connection config validation, SQL generation, data mapping (row->memory entry, entry->SQL params). (2) Contract: mock JDBC driver, verify IConnector protocol compliance (connect!/disconnect!/connected?/health-check/send/receive). (3) Integration (^:integration): real PostgreSQL, verify schema discovery, CRUD round-trip, sync!."
+   :files ["test/hive/connectors/adapters/jdbc_test.clj"]
+   :depends-on ["step-5"]
+   :priority :high
+   :wave 2}
+
+  {:id "step-7"
+   :title "Rewrite GitHub adapter to hive-mcp IConnector"
+   :description "Move src/hive/connectors/github.clj -> src/hive/connectors/adapters/github.clj. KEEP all working Java interop (kohsuke/github-api). CHANGE protocol impl from local IConnector to hive-mcp.protocols.connector/IConnector: connect! wraps create-client (token->GitHubBuilder->client in atom), disconnect! nils atom, connected? checks atom, health-check calls .getRateLimit, send wraps mutate ops (create-issue!, comment!, close!, reopen!), receive wraps query ops (list-issues, list-pull-requests, get-issue, get-pull-request, list-pr-files, list-pr-reviews). Rewrite GitHubDataMapper to hive-mcp IDataMapper (inbound/outbound instead of to-memory/from-memory). KEEP GitHubWebhookHandler on local IWebhookHandler (hive-mcp lacks this). This is protocol alignment, NOT functional rewrite — preserve all existing functionality."
+   :files ["src/hive/connectors/adapters/github.clj"]
+   :depends-on ["step-2"]
+   :priority :medium
+   :wave 3}
+
+  {:id "step-8"
+   :title "REST adapter — GenericRESTConnector"
+   :description "src/hive/connectors/adapters/rest.clj implementing hive-mcp IConnector + IDataMapper. Generic REST API adapter configured with endpoint definitions: {:base-url \"https://api.example.com\" :auth {:type :bearer :token \"...\"} :endpoints [{:name :list-items :method :get :path \"/items\" :params [:page :limit]} {:name :create-item :method :post :path \"/items\" :body-schema {...}}]}. connect! validates base-url reachability + auth. send dispatches to POST/PUT/DELETE endpoints. receive dispatches to GET endpoints. Uses clj-http.client. IDataMapper: inbound parses JSON/XML to memory entries, outbound serializes entries to request bodies. Enables Connection Registry to support arbitrary REST APIs without per-API adapters."
+   :files ["src/hive/connectors/adapters/rest.clj"]
+   :depends-on ["step-2"]
+   :priority :medium
+   :wave 3}
+
+  {:id "step-9"
+   :title "GitHub + REST adapter tests"
+   :description "Migrate test/hive/connectors/github_test.clj -> test/hive/connectors/adapters/github_test.clj, update assertions for hive-mcp IConnector protocol. New test/hive/connectors/adapters/rest_test.clj with mock HTTP server. Verify IConnector protocol compliance and data mapping round-trips for both."
+   :files ["test/hive/connectors/adapters/github_test.clj" "test/hive/connectors/adapters/rest_test.clj"]
+   :depends-on ["step-7" "step-8"]
+   :priority :medium
+   :wave 3}
+
+  {:id "step-10"
+   :title "Infrastructure — rate limiter, cache, HTTP client"
+   :description "src/hive/connectors/infra/rate_limiter.clj: TokenBucketLimiter and LeakyBucketLimiter implementing IRateLimiter. Per-connector configs (GitHub 5000/hr, Slack 1/sec). src/hive/connectors/infra/cache.clj: TTL-based in-memory LRU response cache, configurable per resource. src/hive/connectors/infra/http.clj: shared HTTP client wrapper with retry, timeout, circuit breaker, rate-limit integration. All adapters optionally compose these."
+   :files ["src/hive/connectors/infra/rate_limiter.clj" "src/hive/connectors/infra/cache.clj" "src/hive/connectors/infra/http.clj"]
+   :depends-on ["step-2"]
+   :priority :low
+   :wave 4}
+
+  {:id "step-11"
+   :title "README and documentation update"
+   :description "Rewrite README.md: (1) hive-connectors as adapter contracts layer for hive-ingest. (2) Connection Registry usage (register DB, register REST API). (3) Available adapters: JDBC, REST, GitHub. (4) Protocol relationship to hive-mcp.protocols.connector. (5) Custom adapter guide. (6) Updated deps, examples, test instructions."
+   :files ["README.md"]
+   :depends-on ["step-4" "step-7" "step-8"]
+   :priority :low
+   :wave 4}
+
+  {:id "step-12"
+   :title "CI/CD setup"
+   :description ".github/workflows/test.yml: clj -M:test on PRs (unit + contract). .github/workflows/integration.yml: nightly with PostgreSQL service container via testcontainers."
+   :files [".github/workflows/test.yml" ".github/workflows/integration.yml" "deps.edn"]
+   :depends-on ["step-6" "step-9"]
+   :priority :low
+   :wave 4}]
+
+ :waves
+ {:wave-1 {:title "Foundation — scaffolding + protocol alignment"
+           :steps ["step-1" "step-2" "step-3"]
+           :parallel false
+           :description "Sequential: scaffolding -> protocol rewrite -> core module. Must complete before any adapter work."}
+  :wave-2 {:title "Connection Registry + JDBC (highest product value)"
+           :steps ["step-4" "step-5" "step-6"]
+           :parallel true
+           :description "step-4 (registry) and step-5 (JDBC) can proceed in parallel after step-2. step-6 (tests) depends on step-5. Delivers core hive-ingest value: users register DB sources, system scans via JDBC."}
+  :wave-3 {:title "API Adapters — GitHub rewrite + REST generic"
+           :steps ["step-7" "step-8" "step-9"]
+           :parallel true
+           :description "step-7 (GitHub) and step-8 (REST) can proceed in parallel after step-2. step-9 (tests) depends on both. Preserves existing functionality while enabling REST API connections."}
+  :wave-4 {:title "Infrastructure + Polish"
+           :steps ["step-10" "step-11" "step-12"]
+           :parallel true
+           :description "All three in parallel. Rate limiter/cache, docs, CI/CD. Not blocking for MVP."}}}

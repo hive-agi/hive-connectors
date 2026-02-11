@@ -1,3 +1,6 @@
 {:project-id "hive-connectors"
  :parent "hive"
- :description "External service connectors for the hive ecosystem"}
+ :description "Adapter contracts layer for hive-ingest — protocol-based connectors for external services"
+ :license "MIT"
+ :language :clojure
+ :tags ["connectors" "integration" "adapters" "hive-ingest"]}
