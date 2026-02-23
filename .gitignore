@@ -27,3 +27,4 @@ pom.xml.asc
 .DS_Store
 Thumbs.db
 local.deps.edn
+.lsp/
