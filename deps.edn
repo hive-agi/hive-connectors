@@ -2,7 +2,7 @@
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
 
         ;; Hive ecosystem — protocols (IConnector, IDataMapper, etc.)
-        io.github.hive-agi/hive-mcp {:git/tag "v0.16.2" :git/sha "a8c5179"}
+        io.github.hive-agi/hive-mcp {:git/tag "v0.16.3" :git/sha "030e7be"}
 
         ;; GitHub connector
         org.kohsuke/github-api {:mvn/version "1.326"}
