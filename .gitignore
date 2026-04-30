@@ -28,3 +28,5 @@ pom.xml.asc
 Thumbs.db
 local.deps.edn
 .lsp/
+.clj-kondo/
+target/
