@@ -1,9 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
 
-        ;; Hive ecosystem — protocols (IConnector, IDataMapper, etc.)
-        io.github.hive-agi/hive-mcp {:mvn/version "0.18.1"}
-
         ;; GitHub connector
         org.kohsuke/github-api {:mvn/version "1.326"}
 
