@@ -9,7 +9,7 @@
 
         ;; JDBC adapter — generic database connectivity
         com.github.seancorfield/next.jdbc {:mvn/version "1.3.1118"}
-        com.zaxxer/HikariCP {:mvn/version "6.3.0"}
+        com.zaxxer/HikariCP {:mvn/version "7.1.0"}
 
         ;; REST adapter — generic HTTP API connectivity
         clj-http/clj-http {:mvn/version "3.13.1"}
