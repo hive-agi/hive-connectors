@@ -1,11 +1,11 @@
 {:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.12.1"}
+ :deps {org.clojure/clojure {:mvn/version "1.12.5"}
 
         ;; GitHub connector
-        org.kohsuke/github-api {:mvn/version "1.326"}
+        org.kohsuke/github-api {:mvn/version "1.330"}
 
         ;; Slack connector
-        com.slack.api/slack-api-client {:mvn/version "1.45.3"}
+        com.slack.api/slack-api-client {:mvn/version "1.50.0"}
 
         ;; JDBC adapter — generic database connectivity
         com.github.seancorfield/next.jdbc {:mvn/version "1.3.1118"}
@@ -13,7 +13,7 @@
 
         ;; REST adapter — generic HTTP API connectivity
         clj-http/clj-http {:mvn/version "3.13.1"}
-        org.clojure/data.json {:mvn/version "2.5.1"}}
+        org.clojure/data.json {:mvn/version "2.5.2"}}
 
  :aliases
  {
