@@ -1,5 +1,14 @@
 # hive-connectors
 
+<!-- hive-badges -->
+
+[![Clojars Project](https://img.shields.io/clojars/v/io.github.hive-agi/hive-connectors.svg)](https://clojars.org/io.github.hive-agi/hive-connectors)
+[![cljdoc](https://cljdoc.org/badge/io.github.hive-agi/hive-connectors)](https://cljdoc.org/d/io.github.hive-agi/hive-connectors/CURRENT)
+[![release](https://github.com/hive-agi/hive-connectors/actions/workflows/release.yml/badge.svg)](https://github.com/hive-agi/hive-connectors/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+<!-- /hive-badges -->
+
 Protocol-based connectors for [hive-mcp](https://github.com/hive-agi/hive-mcp). Enables hivemind agents to communicate through external channels.
 
 ## Available Connectors
