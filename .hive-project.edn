@@ -3,4 +3,5 @@
  :description "Adapter contracts layer for hive-ingest — protocol-based connectors for external services"
  :license "MIT"
  :language :clojure
- :tags ["connectors" "integration" "adapters" "hive-ingest"]}
+ :tags ["connectors" "integration" "adapters" "hive-ingest"] 
+ :carto {:source-roots ["dev" "src" "test"]}}
