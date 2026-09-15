@@ -1,11 +1,11 @@
 {:paths ["src"]
- :deps {org.clojure/clojure {:mvn/version "1.12.5"}
+ :deps {org.clojure/clojure {:mvn/version "1.12.6"}
 
         ;; GitHub connector
         org.kohsuke/github-api {:mvn/version "1.330"}
 
         ;; Slack connector
-        com.slack.api/slack-api-client {:mvn/version "1.50.0"}
+        com.slack.api/slack-api-client {:mvn/version "1.51.0"}
 
         ;; JDBC adapter — generic database connectivity
         com.github.seancorfield/next.jdbc {:mvn/version "1.3.1118"}
@@ -19,7 +19,7 @@
  {
   ;; :build — tools.build entrypoint (clojure -T:build <task>). Canonical hive
   ;; build: jar / jar-aot / install / bump / verify-license / deploy.
-  :build {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.15"}}
+  :build {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.17"}}
           :ns-default hive-build.api}
 :dev {:extra-paths ["dev"]
         :extra-deps {nrepl/nrepl {:mvn/version "1.7.0"}
