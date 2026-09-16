@@ -199,42 +199,58 @@
 ;; =============================================================================
 
 (deftest ^:integration authenticate-test
-  (when-let [token (System/getenv "GITHUB_TOKEN")]
-    (let [connector (gh/make-connector)]
-      (testing "authenticates with valid token"
-        (let [result (proto/authenticate connector {:token token})]
-          (is (= true (:ok result)))
-          (is (some? (:client result)))))
-      
-      (testing "fails with invalid token"
-        (let [result (proto/authenticate connector {:token "invalid"})]
-          (is (= false (:ok result))))))))
+  (let [connector (gh/make-connector)]
+    (if-let [token (System/getenv "GITHUB_TOKEN")]
+      (do
+        (testing "authenticates with valid token"
+          (let [result (proto/authenticate connector {:token token})]
+            (is (= true (:ok result)))
+            (is (some? (:client result)))))
+        
+        (testing "fails with invalid token"
+          (let [result (proto/authenticate connector {:token "invalid"})]
+            (is (= false (:ok result))))))
+      ;; Offline contract: with no token at all, authentication is refused.
+      (testing "refuses authentication without any token"
+        (let [result (proto/authenticate connector {})]
+          (is (= false (:ok result)))
+          (is (string? (:error result))))))))
 
 (deftest ^:integration query-issues-test
-  (when-let [token (System/getenv "GITHUB_TOKEN")]
-    (let [connector (gh/make-connector)
-          {:keys [client]} (proto/authenticate connector {:token token})]
-      (testing "queries issues from public repo"
-        (let [result (proto/query connector client
-                                  {:resource :issues
-                                   :repo "hive-agi/hive-connectors"
-                                   :state :all
-                                   :limit 5})]
-          (is (= true (:ok result)))
-          (is (sequential? (:data result))))))))
+  (let [connector (gh/make-connector)]
+    (if-let [token (System/getenv "GITHUB_TOKEN")]
+      (let [{:keys [client]} (proto/authenticate connector {:token token})]
+        (testing "queries issues from public repo"
+          (let [result (proto/query connector client
+                                    {:resource :issues
+                                     :repo "hive-agi/hive-connectors"
+                                     :state :all
+                                     :limit 5})]
+            (is (= true (:ok result)))
+            (is (sequential? (:data result))))))
+      ;; Offline contract: queries require an authenticated client, which the
+      ;; connector refuses to build without any token.
+      (testing "refuses authentication without any token"
+        (let [result (proto/authenticate connector {})]
+          (is (= false (:ok result))))))))
 
 (deftest ^:integration query-pull-requests-test
-  (when-let [token (System/getenv "GITHUB_TOKEN")]
-    (let [connector (gh/make-connector)
-          {:keys [client]} (proto/authenticate connector {:token token})]
-      (testing "queries PRs from public repo"
-        (let [result (proto/query connector client
-                                  {:resource :pull-requests
-                                   :repo "hive-agi/hive-connectors"
-                                   :state :all
-                                   :limit 5})]
-          (is (= true (:ok result)))
-          (is (sequential? (:data result))))))))
+  (let [connector (gh/make-connector)]
+    (if-let [token (System/getenv "GITHUB_TOKEN")]
+      (let [{:keys [client]} (proto/authenticate connector {:token token})]
+        (testing "queries PRs from public repo"
+          (let [result (proto/query connector client
+                                    {:resource :pull-requests
+                                     :repo "hive-agi/hive-connectors"
+                                     :state :all
+                                     :limit 5})]
+            (is (= true (:ok result)))
+            (is (sequential? (:data result))))))
+      ;; Offline contract: queries require an authenticated client, which the
+      ;; connector refuses to build without any token.
+      (testing "refuses authentication without any token"
+        (let [result (proto/authenticate connector {})]
+          (is (= false (:ok result))))))))
 
 ;; =============================================================================
 ;; Run Tests
