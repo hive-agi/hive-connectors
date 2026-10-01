@@ -1,0 +1,9 @@
+.git
+.claude
+.cpcache
+.clj-kondo/.cache
+.lsp
+target
+test
+dev
+.env

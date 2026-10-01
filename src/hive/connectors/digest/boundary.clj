@@ -19,12 +19,16 @@
 
 (defn secret
   "Resolve a secret spec {:env NAME :command [argv]}: the env var when it is
-   set, else the first line the command prints. The value is never logged;
-   a failing command yields nil and the caller reports the secret missing."
+   set, else the first line the command prints. The value is never logged.
+   A command that fails, or is not installed (a container without `gh`),
+   yields nil and the caller reports the secret missing or goes without it."
   [{:keys [env command]}]
   (or (some-> env System/getenv str/trim not-empty)
       (when (seq command)
-        (let [{:keys [exit out]} (apply sh/sh command)]
+        (let [{:keys [exit out]} (try (apply sh/sh command)
+                                      (catch java.io.IOException _
+                                        ;; Binary absent: the same answer as a failing command.
+                                        {:exit 127}))]
           (when (zero? exit)
             (some-> out str/split-lines first str/trim not-empty))))))
 
@@ -69,6 +73,36 @@
                                   :socket-timeout 20000
                                   :connection-timeout 10000})]
     (into [] (keep :jar_name) (json/read-str body :key-fn keyword))))
+
+(defn clojars-artifact!
+  "Clojars' JSON for one artifact: latest version, downloads, dependencies."
+  [group artifact]
+  (let [{:keys [body]} (http/get (str "https://clojars.org/api/artifacts/" group "/" artifact)
+                                 {:as :string
+                                  :headers {"Accept" "application/json" "User-Agent" user-agent}
+                                  :socket-timeout 20000
+                                  :connection-timeout 10000})]
+    (json/read-str body :key-fn keyword)))
+
+(defn public-repos!
+  "{repo-name description} for every public repository of the GitHub `org`.
+   `token` is optional; without one the unauthenticated rate limit applies."
+  ([org] (public-repos! org nil))
+  ([org token]
+   (let [headers (cond-> {"Accept" "application/vnd.github+json" "User-Agent" user-agent}
+                   token (assoc "Authorization" (str "Bearer " token)))]
+     (loop [page 1 acc {}]
+       (let [{:keys [body]} (http/get (str "https://api.github.com/orgs/" org "/repos")
+                                      {:query-params {"type" "public" "per_page" "100" "page" (str page)}
+                                       :headers headers
+                                       :as :string
+                                       :socket-timeout 20000
+                                       :connection-timeout 10000})
+             repos (json/read-str body :key-fn keyword)
+             acc (into acc (map (juxt :name #(or (:description %) ""))) repos)]
+         (if (and (= 100 (count repos)) (< page 10))
+           (recur (inc page) acc)
+           acc))))))
 
 (defn post!
   "Post `text` to a Slack channel. Returns {:ok true :ts :channel} or

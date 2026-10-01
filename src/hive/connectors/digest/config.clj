@@ -51,7 +51,30 @@
    :digest/copy-paste-thread? true
    :digest/state-file (str home "/.local/state/hive-connectors/digest.edn")
    :digest/tick-seconds 600
-   :digest/initial-delay-ms 60000})
+   :digest/initial-delay-ms 60000
+   :announce/channel "#announcements"
+   :announce/title "hive-agi libraries: release roundup"
+   :announce/mature-downloads 3000
+   :announce/links ["https://github.com/hive-agi" "https://clojars.org/groups/io.github.hive-agi"]
+   :announce/blurbs {"hive-mcp" "MCP server: memory + agent coordination"
+                     "bb-mcp" "Babashka MCP, ~50 MB vs ~500 MB JVM"
+                     "hive-spi" "malli schema levers + the ports backends implement"
+                     "hive-addon" "IAddon plugin contract"
+                     "cloffeine" "Caffeine cache"
+                     "hive-dsl" "Result/railway DSL"
+                     "hive-events" "re-frame-style events on the JVM"
+                     "hive-weave" "bounded, timed execution"
+                     "hive-di" "typed config"
+                     "hive-system" "fs/shell/pattern protocols"
+                     "hive-test" "property testing + Kaocha MCP"
+                     "hive-schemas" "schema-driven test synthesis"}
+   :announce/groups [["Editors & vessels" #{"hive-emacs" "hive-vim" "hive-vscode" "hive-tmux" "hive-olympus"
+                                           "hive-dirge" "hive-carto-flow-vim" "hive-vessel" "hive-deepseek"
+                                           "hive-opencode" "hive-claude" "hive-emacs-hagent" "hive-gimp"
+                                           "hive-kdenlive"}]
+                     ["Stores" #{"hive-milvus" "hive-qdrant" "hive-datahike" "hive-datalevin" "hive-datascript"
+                                 "hive-proximum" "hive-yggdrasil-storage" "milvus-clj" "clj-qdrant"}]]
+   :announce/rest-label "Tooling"})
 
 (defn normalize-feed
   "A feed URL string or map -> {:feed/id :feed/url :feed/role}. A bare URL
@@ -77,9 +100,10 @@
     (not (pos-int? total)) (conj {:key :digest/total :problem "a positive integer"})))
 
 (defn settings
-  "Raw config map -> {:ok settings} or {:error [problem ..]}."
+  "Raw config map -> {:ok settings} or {:error [problem ..]}. Reads the
+   :digest/* and :announce/* keys only."
   [raw home]
-  (let [own (into {} (filter (fn [[k _]] (and (keyword? k) (= "digest" (namespace k))))) raw)
+  (let [own (into {} (filter (fn [[k _]] (and (keyword? k) (#{"digest" "announce"} (namespace k))))) raw)
         s (update (merge (defaults home) own) :digest/feeds #(mapv normalize-feed %))
         ps (problems s)]
     (if (seq ps) {:error ps} {:ok s})))

@@ -27,14 +27,16 @@
 
 (defn default-deps
   "Production effects for `settings`. Secrets resolve per call, so a token
-   rotated in pass or the environment is picked up without a restart."
+   rotated in pass or the environment is picked up without a restart. Posts
+   go to :digest/channel; see `announce-deps` for the roundup's channel."
   [settings]
-  (let [state-file (:digest/state-file settings)]
+  (let [state-file (:digest/state-file settings)
+        github-token #(boundary/secret (:digest/github-token settings))]
     {:merged-prs! (fn [window]
-                    (boundary/merged-prs! {:org (:digest/org settings)
-                                           :token (boundary/secret (:digest/github-token settings))}
-                                          window))
+                    (boundary/merged-prs! {:org (:digest/org settings) :token (github-token)} window))
      :list-artifacts! boundary/clojars-artifacts!
+     :artifact-info! boundary/clojars-artifact!
+     :public-repos! (fn [org] (boundary/public-repos! org (github-token)))
      :fetch-text! boundary/fetch-text!
      :post! (fn [text opts]
               (if-let [token (boundary/secret (:digest/slack-token settings))]
@@ -43,6 +45,11 @@
      :read-state #(boundary/read-state state-file)
      :write-state! #(boundary/write-state! state-file %)
      :now #(Instant/now)}))
+
+(defn announce-deps
+  "Effects for the release roundup: the digest's, posting to :announce/channel."
+  [settings]
+  (default-deps (assoc settings :digest/channel (:announce/channel settings))))
 
 (defn- daemon-scheduler ^ScheduledExecutorService []
   (Executors/newSingleThreadScheduledExecutor
