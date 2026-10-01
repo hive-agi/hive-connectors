@@ -65,30 +65,58 @@
           (when (pos? hidden)
             [(str bullet " " (escape (str "…and " hidden " more")))])))
 
-(defn- summary-line [{:keys [merged repos listed window org]}]
-  (when (pos? merged)
-    (let [left-out (- merged listed)]
-      (str merged " pull request" (when (not= 1 merged) "s") " merged across " repos " "
-           org " repo" (when (not= 1 repos) "s") " in the last " (window-hours window) " hours."
-           (when (pos? left-out)
-             (str " " left-out " internal change" (when (not= 1 left-out) "s")
-                  " (CI, chores, tests, docs, refactors) left out."))))))
+(defn- plural [n word]
+  (str n " " word (when (not= 1 n) "s")))
+
+(defn- summary-line [{:keys [merged repos listed window org shipped]}]
+  (let [left-out (- merged listed)]
+    (not-empty
+     (str/join " "
+               (cond-> []
+                 (seq shipped)
+                 (conj (str (plural (count shipped) "new release") " on Clojars."))
+                 (pos? merged)
+                 (conj (str (plural merged "pull request") " merged across " (plural repos (str org " repo"))
+                            " in the last " (window-hours window) " hours."))
+                 (pos? left-out)
+                 (conj (str (plural left-out "internal change") " (CI, chores, tests, docs, refactors) left out.")))))))
+
+(defn- shipped-lines
+  "One release as a changelog: coordinate and version, then the features and
+   fixes merged in its repo."
+  [{:keys [bold link escape bullet] :as d} per-repo {:keys [artifact version previous url items]}]
+  (let [shown (take per-repo items)
+        hidden (- (count items) (count shown))]
+    (concat [(str (bold (link url (str artifact " " version)))
+                  (when previous (escape (str " (was " previous ")"))))]
+            (if (seq shown)
+              (map #(item-line d %) shown)
+              [(str bullet " " (escape "maintenance release"))])
+            (when (pos? hidden)
+              [(str bullet " " (escape (str "…and " hidden " more")))]))))
 
 (defn render
   "Digest -> text in dialect `d`. opts: :title :zone :per-repo :total
-   :tagline :links [[label url] ..]."
-  [{:keys [escape bold link] :as d} {:keys [window org sections releases news] :as digest}
+   :tagline :links [[label url] ..]. New Clojars releases come first, each
+   with its changelog; repos that merged work without a release follow."
+  [{:keys [escape bold link] :as d} {:keys [window org shipped sections releases news] :as digest}
    {:keys [title zone per-repo total tagline links]}]
   (let [visible (filter (comp seq :shown) (budget-sections sections per-repo total))
         hidden-repos (- (count sections) (count visible))]
     (->> (concat
           [(bold (escape (str title " · " (day-label (:to window) zone))))]
           (some-> (summary-line digest) escape vector)
-          (mapcat #(cons "" (section-lines d org %)) visible)
+          (when (seq shipped)
+            (concat ["" (bold "Released on Clojars")]
+                    (mapcat #(concat (shipped-lines d per-repo %) [""]) (butlast shipped))
+                    (shipped-lines d per-repo (last shipped))))
+          (when (seq visible)
+            (concat ["" (bold (if (seq shipped) "Also merged" "Merged"))]
+                    (rest (mapcat #(cons "" (section-lines d org %)) visible))))
           (when (pos? hidden-repos)
-            ["" (escape (str "Plus changes in " hidden-repos " more repo" (when (not= 1 hidden-repos) "s") "."))])
+            ["" (escape (str "Plus changes in " (plural hidden-repos "more repo") "."))])
           (when (seq releases)
-            (concat ["" (bold "Releases")] (map #(feed-line d %) releases)))
+            (concat ["" (bold "From the hive store")] (map #(feed-line d %) releases)))
           (when (seq news)
             (concat ["" (bold "Elsewhere")] (map #(feed-line d %) news)))
           (when (or tagline (seq links))

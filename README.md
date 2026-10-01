@@ -27,12 +27,17 @@ The jar carries `META-INF/hive-addons/hive-connectors.edn`, so a hive that has
 hive-connectors on its classpath mounts the `hive.connectors` addon. Once a day
 it posts a digest to Slack:
 
-- **Merged pull requests** across the GitHub organization, grouped by repo.
+- **Released on Clojars**: every artifact of the Maven group
+  (`io.github.hive-agi`) whose new version was deployed inside the window,
+  as `hive-addon 1.1.0 (was 1.0.16)`. Underneath each one is its changelog,
+  made of the features and fixes merged in its repo. The release date comes
+  from the `lastUpdated` stamp in the artifact's `maven-metadata.xml`.
+- **Also merged**: repos that merged work without a release, grouped by repo.
   Features, perf work and fixes are listed. CI, chores, tests, docs and
   refactors are counted, not listed. Staging promotions repeat work already
   listed, so they are left out.
-- **Releases** from the hive-store release feed (`https://store.hive-mcp.com/api/feed`),
-  with the first changelog line of each.
+- **From the hive store**: the hive-store release feed (`https://store.hive-mcp.com/api/feed`),
+  minus anything already listed as a Clojars release.
 - **Elsewhere**: items from any other RSS or Atom feed you add.
 
 The post is Slack mrkdwn, which copies cleanly into another Slack workspace
@@ -40,9 +45,10 @@ The post is Slack mrkdwn, which copies cleanly into another Slack workspace
 a code block, for ClojureVerse, Reddit or Discord.
 
 ```text
-GitHub search (merged PRs) ─┐
-hive-store feed (releases) ─┼─▶ compose ─▶ render ─▶ Slack post + Markdown thread reply
-other RSS / Atom (news) ────┘                          (once a day, state file dedupes)
+Clojars metadata (releases) ─┐
+GitHub search (merged PRs) ──┤
+hive-store feed (releases) ──┼─▶ compose ─▶ render ─▶ Slack post + Markdown thread reply
+other RSS / Atom (news) ─────┘                          (once a day, state file dedupes)
 ```
 
 Configure it in `~/.config/hive-mcp/config.edn`:
@@ -50,7 +56,8 @@ Configure it in `~/.config/hive-mcp/config.edn`:
 ```clojure
 {:addons
  {"hive.connectors"
-  {:digest/channel      "#general"                     ; channel name or id
+  {:digest/channel      "#updates"                     ; channel name or id (the default)
+   :digest/maven-group  "io.github.hive-agi"           ; nil turns the Clojars section off
    :digest/hour         9                              ; local hour the post is due
    :digest/zone         "America/Bahia"
    :digest/org          "hive-agi"
