@@ -4,4 +4,4 @@
  :license "MIT"
  :language :clojure
  :tags ["connectors" "integration" "adapters" "hive-ingest"] 
- :carto {:source-roots ["dev" "src" "test"]}}
+ :carto {:source-roots ["dev" "resources" "src" "test"]}}
