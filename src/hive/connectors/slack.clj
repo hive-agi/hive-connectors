@@ -36,6 +36,26 @@
       {:ok false
        :error (.getError response)})))
 
+(defn post-message!
+  "Send `text` to `channel` with options:
+     :thread-ts  reply inside the thread of that message
+     :unfurl?    link and media previews (default false)
+   Same result shape as send-message!."
+  [token channel text {:keys [thread-ts unfurl?]}]
+  (let [builder (cond-> (-> (ChatPostMessageRequest/builder)
+                            (.channel channel)
+                            (.text text)
+                            (.unfurlLinks (boolean unfurl?))
+                            (.unfurlMedia (boolean unfurl?)))
+                  thread-ts (.threadTs thread-ts))
+        response (.chatPostMessage (.methods (create-client) token) (.build builder))]
+    (if (.isOk response)
+      {:ok true
+       :ts (.getTs response)
+       :channel (.getChannel response)}
+      {:ok false
+       :error (.getError response)})))
+
 (defn format-hivemind-event
   "Format a hivemind event for Slack display.
 

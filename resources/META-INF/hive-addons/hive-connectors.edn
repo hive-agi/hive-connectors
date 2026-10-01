@@ -1,0 +1,13 @@
+{:addon/id           "hive.connectors"
+ :addon/kind         :addon
+ :addon/type         :native
+ :addon/init-ns      "hive.connectors.addon"
+ :addon/init-fn      "addon-ctor"
+ :addon/capabilities #{:tools :health-reporting}
+ :addon/config       {:digest/hour 9
+                      :digest/zone "America/Bahia"
+                      :digest/org "hive-agi"}
+ :addon/description  "External channels for the hive. Ships the daily digest: merged hive-agi pull requests, hive-store releases and RSS items, posted to Slack once a day with a Markdown copy for community channels."
+ :addon/license      "MIT"
+ :addon/maturity     :experimental
+ :addon/trust-class  :foss}

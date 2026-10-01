@@ -17,8 +17,71 @@ Protocol-based connectors for [hive-mcp](https://github.com/hive-agi/hive-mcp). 
 |-----------|--------|-------------|
 | **GitHub** | ✅ Full | Issues, PRs, comments, webhooks via IConnector protocol |
 | **Slack** | ✅ MVP | Send hivemind events to Slack channels via official Java SDK |
+| **Daily digest** | ✅ IAddon | hive-agi activity, posted to Slack once a day with a Markdown copy |
 | Linear | Planned | Task sync and notifications |
 | Notion | Planned | Documentation sync |
+
+## Daily digest (IAddon `hive.connectors`)
+
+The jar carries `META-INF/hive-addons/hive-connectors.edn`, so a hive that has
+hive-connectors on its classpath mounts the `hive.connectors` addon. Once a day
+it posts a digest to Slack:
+
+- **Merged pull requests** across the GitHub organization, grouped by repo.
+  Features, perf work and fixes are listed. CI, chores, tests, docs and
+  refactors are counted, not listed. Staging promotions repeat work already
+  listed, so they are left out.
+- **Releases** from the hive-store release feed (`https://store.hive-mcp.com/api/feed`),
+  with the first changelog line of each.
+- **Elsewhere**: items from any other RSS or Atom feed you add.
+
+The post is Slack mrkdwn, which copies cleanly into another Slack workspace
+(Clojurians, for example). Its thread carries the same digest as Markdown in
+a code block, for ClojureVerse, Reddit or Discord.
+
+```text
+GitHub search (merged PRs) ─┐
+hive-store feed (releases) ─┼─▶ compose ─▶ render ─▶ Slack post + Markdown thread reply
+other RSS / Atom (news) ────┘                          (once a day, state file dedupes)
+```
+
+Configure it in `~/.config/hive-mcp/config.edn`:
+
+```clojure
+{:addons
+ {"hive.connectors"
+  {:digest/channel      "#general"                     ; channel name or id
+   :digest/hour         9                              ; local hour the post is due
+   :digest/zone         "America/Bahia"
+   :digest/org          "hive-agi"
+   :digest/slack-token  {:env "SLACK_BOT_TOKEN"
+                         :command ["pass" "show" "slack/api/xoxb-..."]}
+   :digest/github-token {:env "GITHUB_TOKEN" :command ["gh" "auth" "token"]}
+   :digest/feeds        [{:feed/id "hive-store"
+                          :feed/url "https://store.hive-mcp.com/api/feed"
+                          :feed/role :release}
+                         "https://planet.clojure.in/atom.xml"]}}}   ; a bare URL is :news
+```
+
+Each secret resolves per call: the env var first, then the first line the
+command prints. Rotating a token needs no restart. The bot needs the
+`chat:write` scope and must be a member of the channel.
+
+Use the `connectors` tool (`status`, `preview`, `post`, and `force=true` to
+post again the same day), or the shell:
+
+```bash
+clojure -M:digest preview          # print the Slack text and the Markdown copy
+clojure -M:digest post             # post now (once a day)
+clojure -M:digest post --force     # post even if today already has a post
+```
+
+The addon and the CLI share the state file
+(`~/.local/state/hive-connectors/digest.edn`), so they never post the same day
+twice. If GitHub is unreachable, nothing is posted and nothing is recorded,
+and the next tick (every 10 minutes) retries. Each window starts where the
+previous post ended, so a day the host was down is not lost (the window is
+capped at 72 hours).
 
 ## Installation
 
