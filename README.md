@@ -90,6 +90,39 @@ and the next tick (every 10 minutes) retries. Each window starts where the
 previous post ended, so a day the host was down is not lost (the window is
 capped at 72 hours).
 
+### Release roundup (`announce`)
+
+`announce` posts a roundup of every **public** library in the Maven group to
+`:announce/channel` (default `#announcements`), in about twenty lines:
+
+- **Fresh**: what was released since the last roundup (the last 7 days the first time).
+- **Stable (≥ 1.0)**, then **Mature, still 0.x** (at least
+  `:announce/mature-downloads` downloads, default 3000), then **Younger /
+  experimental** in the groups `:announce/groups` names.
+- **How they fit**: which core libraries build on which, from the Clojars
+  dependency lists, and what the younger libraries build on.
+
+A library counts as public when its GitHub repository is. Short descriptions
+come from `:announce/blurbs`, else the repository description. The roundup
+posts at most once per ISO week, and only in a week when something was
+released (`--force` overrides both). Its thread holds the raw text for
+pasting into Clojurians: turn on Preferences → Advanced → "Format messages
+with markup" there first.
+
+```bash
+clojure -M:digest announce-preview            # print the roundup, post nothing
+clojure -M:digest announce                    # post it (weekly, only with news)
+clojure -M:digest announce --channel C0123    # another channel
+```
+
+### Container image
+
+`ghcr.io/hive-agi/hive-connectors:<short sha>` is built from `Dockerfile` on
+every push to `main` (`.github/workflows/image.yml`). Its entrypoint is the CLI,
+so `docker run … post` or `… announce` does one run. It reads `SLACK_BOT_TOKEN`
+and, optionally, `GITHUB_TOKEN`, and `HIVE_MCP_CONFIG` points at the config.
+The `hive-digest` context in k8s-agi runs both commands as CronJobs.
+
 ## Installation
 
 Add to your `deps.edn`:
