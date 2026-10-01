@@ -60,6 +60,16 @@
                         :socket-timeout 20000
                         :connection-timeout 10000})))
 
+(defn clojars-artifacts!
+  "Artifact names Clojars lists for `group`. Throws on an HTTP failure."
+  [group]
+  (let [{:keys [body]} (http/get (str "https://clojars.org/api/groups/" group)
+                                 {:as :string
+                                  :headers {"Accept" "application/json" "User-Agent" user-agent}
+                                  :socket-timeout 20000
+                                  :connection-timeout 10000})]
+    (into [] (keep :jar_name) (json/read-str body :key-fn keyword))))
+
 (defn post!
   "Post `text` to a Slack channel. Returns {:ok true :ts :channel} or
    {:ok false :error}; an exception becomes an :error value."

@@ -11,7 +11,7 @@
   [#:pattern{:id :digest/conventional-title
              :expr "^([A-Za-z][\\w-]*)(?:\\(([^)]*)\\))?(!)?:\\s*(.+)$"}
    #:pattern{:id :digest/promotion-title
-             :expr "^(?:staging\\s*(?:→|->)\\s*main|staging promote|promote:|release:|merge (?:branch|pull))"
+             :expr "^(?:staging\\s*(?:→|->)\\s*main|staging promote|promote staging|promote:|release:|merge (?:branch|pull))"
              :flags #{:case-insensitive}}
    #:pattern{:id :digest/html-list-item
              :expr "<li>(.*?)</li>"

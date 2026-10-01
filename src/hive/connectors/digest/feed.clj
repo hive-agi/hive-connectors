@@ -1,46 +1,14 @@
 (ns hive.connectors.digest.feed
-  "Pure. Parse an RSS 2.0, RSS 1.0 or Atom document into items. The parser
-   refuses DOCTYPEs, so a hostile feed cannot expand entities or read local
-   files."
+  "Pure. Parse an RSS 2.0, RSS 1.0 or Atom document into items, through the
+   hardened parser in hive.connectors.digest.xml."
   (:require [clojure.string :as str]
-            [hive.connectors.digest.text :as text])
-  (:import (java.io ByteArrayInputStream)
-           (java.nio.charset StandardCharsets)
-           (java.time Instant OffsetDateTime)
+            [hive.connectors.digest.text :as text]
+            [hive.connectors.digest.xml :refer [child content kids local-name] :as xml])
+  (:import (java.time Instant OffsetDateTime)
            (java.time.format DateTimeFormatter)
-           (javax.xml.parsers DocumentBuilderFactory)
-           (org.w3c.dom Element Node NodeList)
-[org.xml.sax ErrorHandler]))
+           (org.w3c.dom Element)))
 
 ;; SPDX-License-Identifier: MIT
-
-(defn- builder []
-  (let [f (DocumentBuilderFactory/newInstance)]
-    (.setNamespaceAware f true)
-    (.setFeature f "http://apache.org/xml/features/disallow-doctype-decl" true)
-    (.setXIncludeAware f false)
-    (.setExpandEntityReferences f false)
-    (doto (.newDocumentBuilder f)
-      ;; The default handler prints to stderr before throwing; the throw alone
-      ;; carries the error to the caller, which reports it per feed.
-      (.setErrorHandler (reify ErrorHandler
-                          (warning [_ _])
-                          (error [_ e] (throw e))
-                          (fatalError [_ e] (throw e)))))))
-
-(defn- local-name [^Node n]
-  (or (.getLocalName n) (.getNodeName n)))
-
-(defn- children [^Node n]
-  (let [^NodeList nl (.getChildNodes n)]
-    (for [i (range (.getLength nl))
-          :let [c (.item nl i)]
-          :when (= Node/ELEMENT_NODE (.getNodeType c))]
-      c)))
-
-(defn- kids [n nm] (filter #(= nm (local-name %)) (children n)))
-(defn- child [n nm] (first (kids n nm)))
-(defn- content [n] (some-> ^Node n .getTextContent str/trim not-empty))
 
 (defn parse-instant
   "RFC 1123 (RSS) or ISO-8601 (Atom) date string -> Instant, or nil. The RSS
@@ -93,9 +61,8 @@
 (defn parse
   "XML string -> {:title .. :items [{:title :url :id :published :categories
    :highlights}]}. Throws ex-info when the document is neither RSS nor Atom."
-  [^String xml]
-  (let [doc (.parse (builder) (ByteArrayInputStream. (.getBytes xml StandardCharsets/UTF_8)))
-        root (.getDocumentElement doc)]
+  [^String s]
+  (let [root (xml/root s)]
     (case (local-name root)
       "rss" (let [ch (child root "channel")]
               {:title (content (child ch "title")) :items (mapv rss-item (kids ch "item"))})

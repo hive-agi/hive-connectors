@@ -16,7 +16,8 @@
             [hive.connectors.digest.config :as config]
             [hive.connectors.digest.feed :as feed]
             [hive.connectors.digest.render :as render]
-            [hive.connectors.digest.schedule :as schedule]))
+            [hive.connectors.digest.schedule :as schedule]
+            [hive.connectors.digest.maven :as maven]))
 
 ;; SPDX-License-Identifier: MIT
 
@@ -29,9 +30,28 @@
     (catch Exception e
       {:error (str label ": " (ex-message e))})))
 
+(defn shipped!
+  "Maven releases of `group` published inside the window. Each artifact's
+   metadata is read on its own, so one unreadable artifact is an error line,
+   not a lost section."
+  [{:keys [list-artifacts! fetch-text!]} {:digest/keys [maven-group maven-repo]} window]
+  (if-not maven-group
+    {:ok []}
+    (let [listed (attempt "clojars" #(list-artifacts! maven-group))]
+      (if-let [e (:error listed)]
+        {:ok [] :errors [e]}
+        (let [results (pmap (fn [artifact]
+                              (attempt (str "maven " artifact)
+                                       #(maven/release (maven/parse-metadata
+                                                        (fetch-text! (maven/metadata-url maven-repo maven-group artifact))))))
+                            (:ok listed))]
+          {:ok (into [] (comp (keep :ok) (filter #(compose/in-window? window (:published %)))) results)
+           :errors (vec (keep :error results))})))))
+
 (defn collect!
-  [{:keys [merged-prs! fetch-text!]} settings window]
+  [{:keys [merged-prs! fetch-text!] :as deps} settings window]
   (let [prs (attempt "github" #(merged-prs! window))
+        shipped (shipped! deps settings window)
         feeds (mapv (fn [f]
                       (assoc (attempt (str "feed " (:feed/id f)) #(feed/parse (fetch-text! (:feed/url f))))
                              :feed f))
@@ -44,9 +64,10 @@
                            feeds))]
     {:prs (or (:ok prs) [])
      :github-ok? (contains? prs :ok)
+     :shipped (:ok shipped)
      :releases (role-items :release)
      :news (role-items :news)
-     :errors (vec (keep :error (cons prs feeds)))}))
+     :errors (-> (vec (keep :error (cons prs feeds))) (into (:errors shipped)))}))
 
 (defn build!
   "Collect and render the digest for the window ending at `now`, without
@@ -69,6 +90,7 @@
    :to (str (:to window))
    :merged (:merged digest)
    :listed (:listed digest)
+   :shipped (mapv #(str (:artifact %) " " (:version %)) (:shipped digest))
    :releases (count (:releases digest))
    :news (count (:news digest))
    :errors errors})
