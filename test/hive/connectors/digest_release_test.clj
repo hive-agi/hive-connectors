@@ -70,6 +70,23 @@
       (is (str/includes? slack "*Also merged*\n*<https://github.com/hive-agi/hive-mcp|hive-mcp>*"))
       (is (str/includes? md "**[hive-addon 1.1.0](https://clojars.org/io.github.hive-agi/hive-addon/versions/1.1.0)** (was 1.0.16)")))))
 
+(deftest a-promotion-only-release-uses-the-promotion-as-its-changelog
+  (let [promo (pr-hit "hive-hot" 3 "Promote staging: remove-dirs!, owner claims, scoped reload fix")
+        d (compose/digest {:window window :org "hive-agi" :news [] :releases []
+                           :prs [promo
+                                 (pr-hit "hive-vim" 12 "Promote staging: pack refresh")
+                                 (pr-hit "hive-vim" 11 "Keep a reconnected Vim from a second replay")]
+                           :shipped [{:artifact "hive-hot" :version "0.1.22" :previous "0.1.21" :url "u"}]})]
+    (is (= [3] (mapv :number (:items (first (:shipped d))))))
+    (is (= [[11]] (mapv #(mapv :number (:items %)) (:sections d))) "the unreleased promotion is still dropped")
+    (is (= 1 (:merged d)) "promotions are not counted")
+    (is (= 1 (:listed d)))
+    (is (str/includes? (render/render render/slack d opts) "in the last 28 hours."))))
+
+(deftest a-short-window-reads-in-minutes
+  (is (= "40 minutes" (render/window-span {:from (Instant/parse "2026-10-01T16:00:00Z") :to (Instant/parse "2026-10-01T16:40:00Z")})))
+  (is (= "1 hour" (render/window-span {:from (Instant/parse "2026-10-01T15:10:00Z") :to (Instant/parse "2026-10-01T16:20:00Z")}))))
+
 (deftest the-pipeline-reads-clojars-and-keeps-releases-inside-the-window
   (let [settings (:ok (config/settings {:digest/feeds []} "HOME"))
         fetched (atom [])

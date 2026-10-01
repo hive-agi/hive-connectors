@@ -35,9 +35,14 @@
   [^Instant t zone]
   (.format day-format (.atZone t (ZoneId/of zone))))
 
-(defn window-hours
+(defn window-span
+  "The window's length in words: \"24 hours\", or \"40 minutes\" under an hour."
   [{:keys [^Instant from ^Instant to]}]
-  (Math/round (/ (- (.toEpochMilli to) (.toEpochMilli from)) 3600000.0)))
+  (let [minutes (quot (- (.toEpochMilli to) (.toEpochMilli from)) 60000)]
+    (if (< minutes 60)
+      (str (max 1 minutes) " minute" (when (not= 1 (max 1 minutes)) "s"))
+      (let [hours (Math/round (/ minutes 60.0))]
+        (str hours " hour" (when (not= 1 hours) "s"))))))
 
 (defn- item-line [{:keys [escape link bullet]} {:keys [title url number]}]
   (str bullet " " (escape (text/truncate title 140))
@@ -77,7 +82,7 @@
                  (conj (str (plural (count shipped) "new release") " on Clojars."))
                  (pos? merged)
                  (conj (str (plural merged "pull request") " merged across " (plural repos (str org " repo"))
-                            " in the last " (window-hours window) " hours."))
+                            " in the last " (window-span window) "."))
                  (pos? left-out)
                  (conj (str (plural left-out "internal change") " (CI, chores, tests, docs, refactors) left out.")))))))
 

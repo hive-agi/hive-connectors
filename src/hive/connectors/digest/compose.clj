@@ -22,14 +22,21 @@
    A repo that shipped a release carries its pull requests as that release's
    changelog, so they are listed once, under the release. Promotion PRs
    (staging -> main) repeat work listed elsewhere, so they are neither listed
-   nor counted. A feed item naming a shipped release (\"hive-addon 1.1.0\") is
-   a duplicate and is dropped."
+   nor counted, except as the changelog of a release whose repo merged nothing
+   else in the window. A feed item naming a shipped release
+   (\"hive-addon 1.1.0\") is a duplicate and is dropped."
   [{:keys [window org prs shipped releases news]}]
-  (let [work (remove #(= :promotion (:kind %)) (map item/pr->item prs))
+  (let [items (map item/pr->item prs)
+        promotion? #(= :promotion (:kind %))
+        work (remove promotion? items)
         by-repo (group-by :repo work)
+        promotions (group-by :repo (filter promotion? items))
+        changelog (fn [repo]
+                    (let [public (item/sort-items (filter item/public? (get by-repo repo)))]
+                      (if (seq public) public (vec (get promotions repo)))))
         shipped (->> shipped
                      (sort-by :artifact)
-                     (mapv #(assoc % :items (item/sort-items (filter item/public? (get by-repo (:artifact %)))))))
+                     (mapv #(assoc % :items (changelog (:artifact %)))))
         shipped-repos (into #{} (map :artifact) shipped)
         shipped-titles (into #{} (map #(str (:artifact %) " " (:version %))) shipped)
         sections (->> by-repo
@@ -38,7 +45,7 @@
                       (filter (comp seq :items))
                       (sort-by (juxt #(- (count (:items %))) :repo))
                       vec)
-        listed (fn [xs] (reduce + 0 (map (comp count :items) xs)))]
+        listed (fn [xs] (reduce + 0 (map (comp count (partial remove promotion?) :items) xs)))]
     {:window window
      :org org
      :merged (count work)
