@@ -34,6 +34,7 @@
                     (boundary/merged-prs! {:org (:digest/org settings)
                                            :token (boundary/secret (:digest/github-token settings))}
                                           window))
+     :list-artifacts! boundary/clojars-artifacts!
      :fetch-text! boundary/fetch-text!
      :post! (fn [text opts]
               (if-let [token (boundary/secret (:digest/slack-token settings))]

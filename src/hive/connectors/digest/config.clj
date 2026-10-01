@@ -3,10 +3,14 @@
    problems. Only :digest/* keys are read.
 
      :digest/enabled?        post on schedule (default true)
-     :digest/channel         Slack channel name or id
+     :digest/channel         Slack channel name or id (default #updates)
      :digest/hour            local hour the post is due (0-23, default 9)
      :digest/zone            time zone id (default America/Bahia)
      :digest/org             GitHub organization (default hive-agi)
+     :digest/maven-group     Maven group whose new releases lead the post, each
+                             with its changelog (default io.github.hive-agi;
+                             nil turns the section off)
+     :digest/maven-repo      repository holding its metadata (default Clojars)
      :digest/feeds           [\"https://..\" {:feed/url .. :feed/id .. :feed/role :release|:news}]
                              default: the hive-store release feed, as :release
      :digest/slack-token     {:env \"SLACK_BOT_TOKEN\" :command [\"pass\" \"show\" \"..\"]}
@@ -27,10 +31,12 @@
 (defn defaults
   [home]
   {:digest/enabled? true
-   :digest/channel "#general"
+   :digest/channel "#updates"
    :digest/hour 9
    :digest/zone "America/Bahia"
    :digest/org "hive-agi"
+   :digest/maven-group "io.github.hive-agi"
+   :digest/maven-repo "https://repo.clojars.org"
    :digest/feeds [store-feed]
    :digest/slack-token {:env "SLACK_BOT_TOKEN"}
    :digest/github-token {:env "GITHUB_TOKEN" :command ["gh" "auth" "token"]}

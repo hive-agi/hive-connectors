@@ -16,26 +16,47 @@
    :items (item/sort-items (filter item/public? items))})
 
 (defn digest
-  "`prs` are GitHub search hits for the window; `releases` and `news` are
-   feed items already inside it. Promotion PRs (staging -> main) repeat work
-   listed elsewhere, so they are neither listed nor counted."
-  [{:keys [window org prs releases news]}]
-  (let [work (remove #(= :promotion (:kind %)) (map item/pr->item prs))
-        sections (->> (group-by :repo work)
+  "`prs` are GitHub search hits for the window, `shipped` the Maven releases
+   published inside it, `releases` and `news` feed items inside it.
+
+   A repo that shipped a release carries its pull requests as that release's
+   changelog, so they are listed once, under the release. Promotion PRs
+   (staging -> main) repeat work listed elsewhere, so they are neither listed
+   nor counted, except as the changelog of a release whose repo merged nothing
+   else in the window. A feed item naming a shipped release
+   (\"hive-addon 1.1.0\") is a duplicate and is dropped."
+  [{:keys [window org prs shipped releases news]}]
+  (let [items (map item/pr->item prs)
+        promotion? #(= :promotion (:kind %))
+        work (remove promotion? items)
+        by-repo (group-by :repo work)
+        promotions (group-by :repo (filter promotion? items))
+        changelog (fn [repo]
+                    (let [public (item/sort-items (filter item/public? (get by-repo repo)))]
+                      (if (seq public) public (vec (get promotions repo)))))
+        shipped (->> shipped
+                     (sort-by :artifact)
+                     (mapv #(assoc % :items (changelog (:artifact %)))))
+        shipped-repos (into #{} (map :artifact) shipped)
+        shipped-titles (into #{} (map #(str (:artifact %) " " (:version %))) shipped)
+        sections (->> by-repo
+                      (remove (comp shipped-repos key))
                       (map section)
                       (filter (comp seq :items))
                       (sort-by (juxt #(- (count (:items %))) :repo))
-                      vec)]
+                      vec)
+        listed (fn [xs] (reduce + 0 (map (comp count (partial remove promotion?) :items) xs)))]
     {:window window
      :org org
      :merged (count work)
-     :repos (count (into #{} (map :repo) work))
-     :listed (reduce + 0 (map (comp count :items) sections))
+     :repos (count by-repo)
+     :listed (+ (listed sections) (listed shipped))
+     :shipped shipped
      :sections sections
-     :releases (vec (sort-by :title releases))
+     :releases (vec (sort-by :title (remove #(contains? shipped-titles (:title %)) releases)))
      :news (vec news)}))
 
 (defn empty-digest?
   "Nothing worth posting."
-  [{:keys [listed releases news]}]
-  (and (zero? listed) (empty? releases) (empty? news)))
+  [{:keys [listed shipped releases news]}]
+  (and (zero? listed) (empty? shipped) (empty? releases) (empty? news)))

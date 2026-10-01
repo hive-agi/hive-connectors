@@ -108,12 +108,12 @@
     (testing "the fixture's pubDate says Wed; 1 Oct 2026 is a Thursday, and the date still parses"
       (is (str/starts-with? slack "*hive-mcp daily · Thu 1 Oct 2026*")))
     (is (str/includes? slack "6 pull requests merged across 4 hive-agi repos in the last 28 hours. 2 internal changes"))
-    (is (str/includes? slack "*<https://github.com/hive-agi/hive-mcp|hive-mcp>*"))
+    (is (str/includes? slack "*Merged*\n*<https://github.com/hive-agi/hive-mcp|hive-mcp>*"))
     (is (str/includes? slack "(<https://github.com/hive-agi/hive-mcp/pull/225|#225>)"))
     (is (str/includes? slack "memory &amp; agents") "slack control characters are escaped")
     (is (str/includes? md "**[hive-mcp](https://github.com/hive-agi/hive-mcp)**"))
     (is (str/includes? md "- feat(hot): reloadable core, seams S1-S13 closed ([#225](https://github.com/hive-agi/hive-mcp/pull/225))"))
-    (is (str/includes? md "**Releases**\n- [hive-emacs 0.5.6](https://github.com/hive-agi/hive-emacs): attention: surface"))
+    (is (str/includes? md "**From the hive store**\n- [hive-emacs 0.5.6](https://github.com/hive-agi/hive-emacs): attention: surface"))
     (is (not (str/includes? md "staging")))))
 
 (deftest budget-caps-items-and-reports-the-rest
@@ -152,6 +152,7 @@
 
 (defn- stub-deps [{:keys [state posts github]}]
   {:merged-prs! (fn [_] (if (= :down github) (throw (ex-info "503" {})) prs))
+   :list-artifacts! (fn [_] [])
    :fetch-text! (fn [url] (if (str/includes? url "store") rss-xml atom-xml))
    :post! (fn [text o] (let [ts (str "1700000000." (count @posts))]
                          (swap! posts conj {:text text :opts o})
